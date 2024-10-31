@@ -31,12 +31,27 @@ r8 ... r15  CALEE-SAVED (caller pode usar tranquilo)
 r16 ... r23 CALLER-SAVED (callee pode usar tranquilo)
 */
 
+/*
+TRATADOR DE INTERRUPCAO
+10 ENTER
+SHIFT LEFT E WRITE 
+*/
+
 .equ UART_DATA_REG,      0x10001000
 .equ UART_CONTROL_REG,   0x10001004
 .equ INIT_STACK,         0x30000
 
 .global _start
 _start:
+    /* HABILITAR INTERRUPCOES */
+    /* HABILITAR INTERRUPCOES NO PROCESSADOR */
+    addi    r8, r0, 1       /* define constante = 1 (0001) */
+    wrctl   status, r8      /* habilita interrupcoes no processador */
+
+    /* HABILITAR INTERRUPCOES NO IENABLE */
+    movia   r8, 0b0011      /* habilita INTERVAL TIMER e PUSHBTN (IRQs #1 e #2) */
+    wrctl   ienable, r8
+
     movia sp, INIT_STACK
     movia r14, COMANDO                       /* pega o endereco do inicial do comando e armazena em 14 */
 
@@ -82,7 +97,8 @@ TRATAR_LED:
     br   _start
 
 TRATAR_ANIMACAO:
-    br TRATAR_ANIMACAO
+    call _tratar_animacao
+    br   _start
 
 TRATAR_CRONOMETRO:
     br TRATAR_CRONOMETRO
