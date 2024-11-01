@@ -37,9 +37,67 @@ TRATADOR DE INTERRUPCAO
 SHIFT LEFT E WRITE 
 */
 
+.equ DATA_LEDS_R,        0x10000000
 .equ UART_DATA_REG,      0x10001000
 .equ UART_CONTROL_REG,   0x10001004
+.equ TIMER_STATUS_REG,   0x10002000
+.equ LEFTMOST_LED_R_ON,  0x10000
 .equ INIT_STACK,         0x30000
+
+.org 0x20
+    /* START - PROLOGO */
+    stw     r8, 0(sp)
+    subi    sp, sp, 4
+    stw     r9, 0(sp)
+    subi    sp, sp, 4
+    stw     r10, 0(sp)
+    subi    sp, sp, 4
+    stw     ra, 0(sp)
+    /* END - PROLOGO */
+    
+    rdctl   et, ipending              /* checa se houve interrupcao */
+    beq     et, r0, OTHER_EXCEPTIONS  /* se ipending == 0, nao houve interrupcao logo excecao */
+    subi    ea, ea, 4                 /* decrementa ea para retornar corretamente ao main */
+
+    andi    r8, et, 0b0001            /* aplica mascara para pegar valor do b0 (IRQ #0) */
+    beq     r8, r0, OTHER_INTERRUPTS  /* se nao foi, ir para outras interrupcoes */
+    call    EXT_IRQ0                  /* chamar rotina para tratar IRQ #0 (TIMER) */
+
+OTHER_INTERRUPTS:
+    /* adicione outros tratamentos de interrupcao aqui */
+    br      END_HANDLER
+
+OTHER_EXCEPTIONS:
+    /* adicione aqui codigo para lidar com excecoes */
+
+END_HANDLER:
+    /* START - EPILOGO */
+    ldw     ra, 0(sp)
+    addi    sp, sp, 4
+    ldw     r10, 0(sp)
+    addi    sp, sp, 4
+    ldw     r9, 0(sp)
+    addi    sp, sp, 4
+    ldw     r8, 0(sp)
+    /* END - EPILOGO */
+    eret
+
+EXT_IRQ0:
+    movia   r8, TIMER_STATUS_REG
+    stwio   r0, 0(r8)           /* limpa bit de timeout */
+    movia   r8, DATA_LEDS_R     /* pega o endereco do DATA REG dos LEDS R */ 
+    ldwio   r9, 0(r8)           /* pega o estado dos leds */
+    movia   r10, LEFTMOST_LED_R_ON  /* pega o estado dos leds R quando o led mais à esq está ligado */ 
+    beq     r9, r10, REINICIAR_SEQUENCIA  /* se o ultimo led esta ligado, devemos reiniciar a sequencia  */
+
+    slli    r9, r9, 1           /* shift left de 1 bit */
+    stwio   r9, 0(r8)           /* escreve o novo estado dos leds */
+    ret
+
+    REINICIAR_SEQUENCIA:
+        addi    r9, r0, 0b0001
+        stwio   r9, 0(r8)           /* escreve o novo estado dos leds */
+        ret
 
 .global _start
 _start:
@@ -227,6 +285,76 @@ _tratar_led:
         ret
 
 /* END TRATAR LED */
+
+/* START - TRATAR ANIMACAO */
+
+/* 
+
+1. habilitar o bit RUN do registrador STATUS do Interval Timer
+2. A cada vez que o contador chegar a 0 limpar o bit TO do Status (limpar == tornar zero)
+
+10 000 000 de ciclos == 200 ms
+
+*/
+
+.equ TIMER_STATUS_REG,   0x10002000
+.equ DATA_LEDS_R,        0x10000000
+
+.global _tratar_animacao
+_tratar_animacao:
+    /* START - PROLOGO */
+    stw     r16, 0(sp)
+    subi    sp, sp, 4
+    stw     r17, 0(sp)
+    /* END - PROLOGO */
+
+    /* VERIFICAR SE É PARA INICIAR OU PARAR A ANIMACAO / 10 ACENDE e 11 APAGA */
+    ldw     r16, 4(r4)                  /* pegar o bit menos significativo do comando */
+    subi    r16, r16, 0x30              /* subtrair 0x30 para converter ASCII -> decimal */
+    beq     r16, r0, INICIAR_ANIMACAO   /* se o segundo digito for igual a zero, iniciar animacao */
+    br      PARAR_ANIMACAO              /* caso não seja, parar animacao */
+
+    INICIAR_ANIMACAO:
+        /* CONFIGURAR INTERRUPCAO */
+        /* 
+            CONTROL REGISTER (TIMER_STATUS_REG + 4)
+            habilitar ITO   - b0 (habilita interrupcoes do timer)
+            habilitar CONT  - b1 (quando chega a zero reseta)
+            habilitar START - b2 (inicia o contador quando == 1)
+            habilitar STOP  - b3 (para o contador)
+        */
+        /* LIGA O PRIMEIRO LED */
+        movia   r16, DATA_LEDS_R
+        addi    r17, r0, 0b0001
+        stwio   r17, 0(r16)
+
+        movia   r16, TIMER_STATUS_REG   /* armazena em r16 o enderco do status reg do timer */
+
+        /* setar o valor de contagem --> 10 000 000 == 0x0098 9680 */
+        movia   r17, 0x9680     /* parte baixa de 10 000 000*/
+        stwio   r17, 8(r16)     /* escreve parte baixa  */
+        movia   r17, 0x0098     /* parte alta de 10 000 000*/
+        stwio   r17, 12(r16)    /* escreve parte alta  */
+
+        movia   r17, 0b0111     /* habilita interrups, habilita reset, e inicia contagem */
+        stwio   r17, 4(r16)
+
+        /* HABILITAR FLAG DE ANIMACAO */
+
+        /* START - EPILOGO */
+        ldw     r17, 0(sp)
+        addi    sp, sp, 4
+        ldw     r16, 0(sp)
+        /* END - EPILOGO */
+        ret
+
+    PARAR_ANIMACAO:
+        /* parar animacao */
+        /* DESABILITAR INTERRUPCAO */
+        /* FAZER EPILOGO */
+        ret    
+
+/* END - TRATAR ANIMACAO */
 
 .org 0x10000
 .global COMANDO

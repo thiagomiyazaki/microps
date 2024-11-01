@@ -1,3 +1,5 @@
+/* START - TRATAR ANIMACAO */
+
 /* 
 
 1. habilitar o bit RUN do registrador STATUS do Interval Timer
@@ -8,6 +10,7 @@
 */
 
 .equ TIMER_STATUS_REG,   0x10002000
+.equ DATA_LEDS_R,        0x10000000
 
 .global _tratar_animacao
 _tratar_animacao:
@@ -32,6 +35,11 @@ _tratar_animacao:
             habilitar START - b2 (inicia o contador quando == 1)
             habilitar STOP  - b3 (para o contador)
         */
+        /* LIGA O PRIMEIRO LED */
+        movia   r16, DATA_LEDS_R
+        addi    r17, r0, 0b0001
+        stwio   r17, 0(r16)
+
         movia   r16, TIMER_STATUS_REG   /* armazena em r16 o enderco do status reg do timer */
 
         /* setar o valor de contagem --> 10 000 000 == 0x0098 9680 */
@@ -56,8 +64,6 @@ _tratar_animacao:
         /* parar animacao */
         /* DESABILITAR INTERRUPCAO */
         /* FAZER EPILOGO */
-        ret
+        ret    
 
-    /* ADICIONAR PROLOGO DEPOIS */
-    
-    
+/* END - TRATAR ANIMACAO */
