@@ -11,6 +11,7 @@
 
 .equ TIMER_STATUS_REG,   0x10002000
 .equ DATA_LEDS_R,        0x10000000
+.equ SWITCHES_REG,       0x10000040
 
 .global _tratar_animacao
 _tratar_animacao:
@@ -35,11 +36,11 @@ _tratar_animacao:
             habilitar START - b2 (inicia o contador quando == 1)
             habilitar STOP  - b3 (para o contador)
         */
-        /* LIGA O PRIMEIRO LED */
-        movia   r16, DATA_LEDS_R
-        addi    r17, r0, 0b0001
-        stwio   r17, 0(r16)
 
+        /* ZERA TODOS OS LEDS - apaga todos */
+        movia   r16, DATA_LEDS_R    /* pega endereco dos LEDS R */
+        stwio   r0, 0(r16)          /* acende o ultimo led */
+        
         movia   r16, TIMER_STATUS_REG   /* armazena em r16 o enderco do status reg do timer */
 
         /* setar o valor de contagem --> 10 000 000 == 0x0098 9680 */
@@ -51,19 +52,50 @@ _tratar_animacao:
         movia   r17, 0b0111     /* habilita interrups, habilita reset, e inicia contagem */
         stwio   r17, 4(r16)
 
-        /* HABILITAR FLAG DE ANIMACAO */
+        /* TO-DO HABILITAR FLAG DE ANIMACAO */
+
+        /* LIGA O PRIMEIRO LED */
+        movia   r16, SWITCHES_REG
+        ldwio   r16, 0(r16)
+        beq     r16, r0, LIGA_PRIMEIRO
+
+        /* liga o ultimo led (b17) */
+        LIGA_ULTIMO:
+            /* LIGAR ULTIMO LED */
+            movia   r16, DATA_LEDS_R    /* pega endereco dos LEDS R */
+            movia   r17, 0x20000        /* valor que representa b17 == on */
+            stwio   r17, 0(r16)         /* acende o ultimo led */
+
+            /* START - EPILOGO */
+            ldw     r17, 0(sp)
+            addi    sp, sp, 4
+            ldw     r16, 0(sp)
+            /* END - EPILOGO */
+            ret
+        
+        /* liga o primeiro led (b0) */
+        LIGA_PRIMEIRO:
+            movia   r16, DATA_LEDS_R    /* pega endereco dos LEDS R */
+            addi    r17, r0, 0b0001     /* queremos acender o 1o LED */
+            stwio   r17, 0(r16)         /* acende o 1o LED de fato */
+
+            /* START - EPILOGO */
+            ldw     r17, 0(sp)
+            addi    sp, sp, 4
+            ldw     r16, 0(sp)
+            /* END - EPILOGO */
+            ret
+
+    PARAR_ANIMACAO:
+        movia   r16, TIMER_STATUS_REG
+        movia   r17, 0b1011     /* habilita interrups, habilita reset, e para contagem */
+        stwio   r17, 4(r16)
 
         /* START - EPILOGO */
         ldw     r17, 0(sp)
         addi    sp, sp, 4
         ldw     r16, 0(sp)
         /* END - EPILOGO */
-        ret
-
-    PARAR_ANIMACAO:
-        /* parar animacao */
-        /* DESABILITAR INTERRUPCAO */
-        /* FAZER EPILOGO */
         ret    
 
 /* END - TRATAR ANIMACAO */

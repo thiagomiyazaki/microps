@@ -41,7 +41,8 @@ SHIFT LEFT E WRITE
 .equ UART_DATA_REG,      0x10001000
 .equ UART_CONTROL_REG,   0x10001004
 .equ TIMER_STATUS_REG,   0x10002000
-.equ LEFTMOST_LED_R_ON,  0x10000
+.equ SWITCHES_REG,       0x10000040
+.equ LEFTMOST_LED_R_ON,  0x20000
 .equ INIT_STACK,         0x30000
 
 .org 0x20
@@ -83,21 +84,45 @@ END_HANDLER:
     eret
 
 EXT_IRQ0:
+    /* TRATAMENTO DA ANIMACAO */
     movia   r8, TIMER_STATUS_REG
-    stwio   r0, 0(r8)           /* limpa bit de timeout */
-    movia   r8, DATA_LEDS_R     /* pega o endereco do DATA REG dos LEDS R */ 
-    ldwio   r9, 0(r8)           /* pega o estado dos leds */
-    movia   r10, LEFTMOST_LED_R_ON  /* pega o estado dos leds R quando o led mais à esq está ligado */ 
-    beq     r9, r10, REINICIAR_SEQUENCIA  /* se o ultimo led esta ligado, devemos reiniciar a sequencia  */
+    stwio   r0, 0(r8)                       /* limpa bit de timeout */
+    movia   r8, DATA_LEDS_R                 /* pega o endereco do DATA REG dos LEDS R */ 
+    ldwio   r9, 0(r8)                       /* pega o estado dos leds */
 
-    slli    r9, r9, 1           /* shift left de 1 bit */
-    stwio   r9, 0(r8)           /* escreve o novo estado dos leds */
-    ret
+    /* VERIFICA SW0 (SWITCH b0) */
+    movia   r10, SWITCHES_REG       /* pega o estado dos switches */
+    ldwio   r10, 0(r10)
+    beq     r10, r0, SWITCH_OFF     /* se o estado == 0 -> nao ligado */
 
-    REINICIAR_SEQUENCIA:
-        addi    r9, r0, 0b0001
+    SWITCH_ON:
+        /* entra aqui se o switch esta ligado */
+        movia   r10, 0b0001
+        beq     r9, r10, REINICIAR_SEQUENCIA    /* se b0 == 1 -> reinicia sequencia */
+        srli    r9, r9, 1       /* shift right de 1 bit */
         stwio   r9, 0(r8)           /* escreve o novo estado dos leds */
         ret
+
+    SWITCH_OFF:
+        movia   r10, LEFTMOST_LED_R_ON          /* pega o estado dos leds R quando o led mais à esq está ligado */ 
+        beq     r9, r10, REINICIAR_SEQUENCIA    /* se o ultimo led esta ligado, devemos reiniciar a sequencia  */
+        slli    r9, r9, 1           /* shift left de 1 bit */
+        stwio   r9, 0(r8)           /* escreve o novo estado dos leds */
+        ret
+
+    REINICIAR_SEQUENCIA:
+        movia   r10, SWITCHES_REG               /* pega o estado dos switches */
+        beq     r10, r0, RESTART_SWITCH_OFF     /* se o estado == 0 -> nao ligado */
+
+        RESTART_SWITCH_ON:
+            movia   r9, LEFTMOST_LED_R_ON   /* liga o LED b17 */
+            stwio   r9, 0(r8)               /* escreve o novo estado dos leds */
+            ret
+
+        RESTART_SWITCH_OFF:
+            addi    r9, r0, 0b0001      /* liga o LED b0 */
+            stwio   r9, 0(r8)           /* escreve o novo estado dos leds */
+            ret
 
 .global _start
 _start:
@@ -299,6 +324,7 @@ _tratar_led:
 
 .equ TIMER_STATUS_REG,   0x10002000
 .equ DATA_LEDS_R,        0x10000000
+.equ SWITCHES_REG,       0x10000040
 
 .global _tratar_animacao
 _tratar_animacao:
@@ -323,11 +349,11 @@ _tratar_animacao:
             habilitar START - b2 (inicia o contador quando == 1)
             habilitar STOP  - b3 (para o contador)
         */
-        /* LIGA O PRIMEIRO LED */
-        movia   r16, DATA_LEDS_R
-        addi    r17, r0, 0b0001
-        stwio   r17, 0(r16)
 
+        /* ZERA TODOS OS LEDS - apaga todos */
+        movia   r16, DATA_LEDS_R    /* pega endereco dos LEDS R */
+        stwio   r0, 0(r16)          /* acende o ultimo led */
+        
         movia   r16, TIMER_STATUS_REG   /* armazena em r16 o enderco do status reg do timer */
 
         /* setar o valor de contagem --> 10 000 000 == 0x0098 9680 */
@@ -339,19 +365,50 @@ _tratar_animacao:
         movia   r17, 0b0111     /* habilita interrups, habilita reset, e inicia contagem */
         stwio   r17, 4(r16)
 
-        /* HABILITAR FLAG DE ANIMACAO */
+        /* TO-DO HABILITAR FLAG DE ANIMACAO */
 
+        /* LIGA O PRIMEIRO LED */
+        movia   r16, SWITCHES_REG
+        ldwio   r16, 0(r16)
+        beq     r16, r0, LIGA_PRIMEIRO
+
+        /* liga o ultimo led (b17) */
+        LIGA_ULTIMO:
+            /* LIGAR ULTIMO LED */
+            movia   r16, DATA_LEDS_R    /* pega endereco dos LEDS R */
+            movia   r17, 0x20000        /* valor que representa b17 == on */
+            stwio   r17, 0(r16)         /* acende o ultimo led */
+
+            /* START - EPILOGO */
+            ldw     r17, 0(sp)
+            addi    sp, sp, 4
+            ldw     r16, 0(sp)
+            /* END - EPILOGO */
+            ret
+        
+        /* liga o primeiro led (b0) */
+        LIGA_PRIMEIRO:
+            movia   r16, DATA_LEDS_R    /* pega endereco dos LEDS R */
+            addi    r17, r0, 0b0001     /* queremos acender o 1o LED */
+            stwio   r17, 0(r16)         /* acende o 1o LED de fato */
+
+            /* START - EPILOGO */
+            ldw     r17, 0(sp)
+            addi    sp, sp, 4
+            ldw     r16, 0(sp)
+            /* END - EPILOGO */
+            ret
+
+    PARAR_ANIMACAO:
+        movia   r16, TIMER_STATUS_REG 
+        movia   r17, 0b1011     /* habilita interrups, habilita reset, e para contagem */
+        stwio   r17, 4(r16)
+        
         /* START - EPILOGO */
         ldw     r17, 0(sp)
         addi    sp, sp, 4
         ldw     r16, 0(sp)
         /* END - EPILOGO */
-        ret
-
-    PARAR_ANIMACAO:
-        /* parar animacao */
-        /* DESABILITAR INTERRUPCAO */
-        /* FAZER EPILOGO */
         ret    
 
 /* END - TRATAR ANIMACAO */
