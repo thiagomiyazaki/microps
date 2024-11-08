@@ -1,0 +1,51 @@
+1. Configurar o timer para gerar interrupção a cada 1 segundo
+2. Configurar:
+
+    r1 : HORAS    dezena
+    r2 : HORAS    unidade
+    r3 : MINUTOS  dezena
+    r4 : MINUTOS  unidade
+    r5 : SEGUNDOS dezenas
+    r6 : SEGUNDOS unidade
+
+3. A cada interrupcao:
+    somar_r6()
+    enviar_para_display()
+
+    somar_r6(){
+        r6 = r6 + 1
+        if r6 >= 10:
+            r6 = 0
+            somar_r5()
+        atualizar_display()
+        ret
+    }
+
+    somar_r5(){
+        r5 = r5 + 1
+        if r5 >= 10:
+            somar_r4()
+            r5 = 0
+        atualizar_display()
+        ret
+    }
+
+Inicia cronometro de segundos, utilizando 4 displays de 7 segmentos.
+
+MMSS   SSSS
+0120   0080
+
+r1  r2  r3  r4
+0   1   0   0
+
+interrupção
+- somar 1s
+
+Inicia cronometro de segundos, utilizando 4 displays de 7 segmentos. Adicionalmente, o botão
+KEY1 deve controlar a pausa do cronometro: se contagem em andamento, deve ser pausada; se
+pausada, contagem deve ser resumida.
+
+Digite o codigo do comando: 20
+- já inicia o cronometro?
+
+KEY1 -> pausa

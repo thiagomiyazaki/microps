@@ -84,6 +84,12 @@ END_HANDLER:
     eret
 
 EXT_IRQ0:
+    beq     r23, r0, SKIP_CRONOMETRO
+    call    _interrups_cronometro
+    ret
+
+    SKIP_CRONOMETRO:
+
     /* TRATAMENTO DA ANIMACAO */
     movia   r8, TIMER_STATUS_REG
     stwio   r0, 0(r8)                       /* limpa bit de timeout */
@@ -155,7 +161,7 @@ _start:
         beq    r11, r12, REDIRECTION        /* se o dado for igual a ENTER (0A) ir para REDIRECTION */
         br     POLLING_LEITURA
 
-    REDIRECTION:
+    REDIRECTION:    /* 20 / 21*/
         movia   r4, COMANDO     /* aponta para o endereco do codigo do comando */
         ldw     r8, 0(r4)       /* pega o primeiro caractere do comando */
 
@@ -184,7 +190,8 @@ TRATAR_ANIMACAO:
     br   _start
 
 TRATAR_CRONOMETRO:
-    br TRATAR_CRONOMETRO
+    call _tratar_cronometro
+    br  _start
 
 
 /* escreve uma string no console do UART ("Digite o codigo do comando: ") */
@@ -421,3 +428,7 @@ COMANDO:
 .global ASK_COMMAND_STRING
 ASK_COMMAND_STRING:
     .asciz "Digite o codigo do comando: \n"
+
+.global COD_7SEG
+COD_7SEG:
+    .byte 0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110, 0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01100111

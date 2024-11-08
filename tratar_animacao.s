@@ -52,7 +52,7 @@ _tratar_animacao:
         movia   r17, 0b0111     /* habilita interrups, habilita reset, e inicia contagem */
         stwio   r17, 4(r16)
 
-        /* TO-DO HABILITAR FLAG DE ANIMACAO */
+        addi    r23, r0, 0      /* INDICA PARA O TRATADOR DE INTERRUPS QUE O JOB ATUAL É DE ANIMACAO */
 
         /* LIGA O PRIMEIRO LED */
         movia   r16, SWITCHES_REG
@@ -87,6 +87,14 @@ _tratar_animacao:
             ret
 
     PARAR_ANIMACAO:
+    /* 
+        CONTROL REGISTER (TIMER_STATUS_REG + 4)
+        habilitar ITO   - b0 (habilita interrupcoes do timer)
+        habilitar CONT  - b1 (quando chega a zero reseta)
+        habilitar START - b2 (inicia o contador quando == 1)
+        habilitar STOP  - b3 (para o contador)
+        b3_b2_b1_b0 -> 0b1011 -> 1_0_1_1
+    */
         movia   r16, TIMER_STATUS_REG
         movia   r17, 0b1011     /* habilita interrups, habilita reset, e para contagem */
         stwio   r17, 4(r16)
