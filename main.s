@@ -85,10 +85,17 @@ END_HANDLER:
 
 EXT_IRQ0:
     beq     r23, r0, SKIP_CRONOMETRO
-    /*
+    /* START PROLOGO */
+    stw     ra, 0(sp)
+    subi    sp, sp, 4
+    /* END PROLOGO */
     call    _interrups_cronometro
+    /* START EPILOGO */
+    addi    sp, sp, 4
+    ldw     ra, 0(sp)
+    /* END EPILOGO */
     ret
-    */
+
 
     SKIP_CRONOMETRO:
 
@@ -479,9 +486,20 @@ _tratar_cronometro:
         ret
 
     CANCELAR_CRONOMETRO:
-        /* CONFIGURAR O TIMER PARA INTERROMPER A CONTAGEM */
+    /* CONFIGURAR O TIMER PARA INTERROMPER A CONTAGEM */
+        /* START - EPILOGO */
+        addi    sp, sp, 4
+        ldw     ra,  0(sp)
+        addi    sp, sp, 4
+        ldw     r17, 0(sp)
+        addi    sp, sp, 4
+        ldw     r16, 0(sp)
+        /* END - EPILOGO */
 
+        ret
 
+/* ESTA FUNÇÃO LÊ O REGISTRADORES RELATIVOS AOS DIGITOS, MONTA A WORD E ESCREVE NO DISPLAY*/
+.global _write_to_display
 _write_to_display:
     /*
         r22 - X _ _ _
@@ -552,6 +570,57 @@ _write_to_display:
     /* END - EPILOGO */
 
     ret
+
+.global _interrups_cronometro
+_interrups_cronometro:
+    /* START - PROLOGO */
+    stw     ra, 0(sp)
+    subi    sp, sp, 4
+    /* END - PROLOGO*/
+    call _somar_unidade
+    call _write_to_display
+    /* START - EPILOGO */
+    addi    sp, sp, 4
+    ldw     ra, 0(sp)
+    /* END - EPILOGO */
+    ret
+
+.global _somar_unidade
+_somar_unidade:
+    /* START - PROLOGO */
+    stw     ra,  0(sp)
+    subi    sp, sp, 4
+    stw     r16, 0(sp)
+    /* END - PROLOGO */
+
+    addi    r19, r19, 1     /* soma 1 a r19 - o registrador que armazena as unidades */
+    addi    r16, r0, 10     /* define r16 como 10 - valor utlizado para comparacao */
+
+    beq     r19, r16, OVERFLOW_UNIDADE      /* se r19 == 10 entao há overflow e temos que zerar o valor */
+    /* rumo normal sem overflow */
+    /* START - EPILOGO */
+    ldw     r16, 0(sp)
+    addi    sp, sp, 4
+    ldw     ra,  0(sp)
+    /* END - EPILOGO */
+
+    ret
+
+    OVERFLOW_UNIDADE:
+        mov     r19, r0         /* zerar o registrador relativo a unidades */
+        /*call    _somar_dezena*/   /* tenta adicionar um na casa das dezenas */
+        /* START - EPILOGO */
+        ldw     r16, 0(sp)
+        addi    sp, sp, 4
+        ldw     ra,  0(sp)
+        /* END - EPILOGO */
+
+        ret
+
+/*
+.global _somar_dezena
+_somar_dezena:
+*/
 
 /* END - TRATAR CRONOMETRO */
 
