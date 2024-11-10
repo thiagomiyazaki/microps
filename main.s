@@ -89,6 +89,8 @@ EXT_IRQ0:
     stw     ra, 0(sp)
     subi    sp, sp, 4
     /* END PROLOGO */
+    movia   r8, TIMER_STATUS_REG
+    stwio   r0, 0(r8)                       /* limpa bit de timeout */
     call    _interrups_cronometro
     /* START EPILOGO */
     addi    sp, sp, 4
@@ -456,9 +458,9 @@ _tratar_cronometro:
         movia   r16, TIMER_STATUS_REG
         
         /* setar o valor de contagem --> 50 000 000 == 0x02FA F080 */
-        movia   r17, 0xF080     /* parte baixa de 10 000 000*/
+        movia   r17, 0x9680     /* parte baixa de 50 000 000*/
         stwio   r17, 8(r16)     /* escreve parte baixa  */
-        movia   r17, 0x02FA     /* parte alta de 10 000 000*/
+        movia   r17, 0x0098     /* parte alta de 50 000 000*/
         stwio   r17, 12(r16)    /* escreve parte alta  */
 
         movia   r17, 0b0111     /* habilita interrups, habilita reset, e inicia contagem */
@@ -486,7 +488,10 @@ _tratar_cronometro:
         ret
 
     CANCELAR_CRONOMETRO:
-    /* CONFIGURAR O TIMER PARA INTERROMPER A CONTAGEM */
+        /* CONFIGURAR O TIMER PARA INTERROMPER A CONTAGEM */
+
+        /* DESLIGAR DISPLAY */
+
         /* START - EPILOGO */
         addi    sp, sp, 4
         ldw     ra,  0(sp)
@@ -608,7 +613,7 @@ _somar_unidade:
 
     OVERFLOW_UNIDADE:
         mov     r19, r0         /* zerar o registrador relativo a unidades */
-        /*call    _somar_dezena*/   /* tenta adicionar um na casa das dezenas */
+        call    _somar_dezena   /* tenta adicionar um na casa das dezenas */
         /* START - EPILOGO */
         ldw     r16, 0(sp)
         addi    sp, sp, 4
@@ -617,10 +622,101 @@ _somar_unidade:
 
         ret
 
-/*
 .global _somar_dezena
 _somar_dezena:
-*/
+    /* START - PROLOGO */
+    stw     ra,  0(sp)
+    subi    sp, sp, 4
+    stw     r16, 0(sp)
+    /* END - PROLOGO */
+
+    addi    r20, r20, 1     /* soma 1 a r20 - o registrador que armazena as unidades */
+    addi    r16, r0, 10     /* define r16 como 10 - valor utlizado para comparacao */
+
+    beq     r20, r16, OVERFLOW_DEZENA      /* se r20 == 10 entao há overflow e temos que zerar o valor */
+    /* rumo normal sem overflow */
+    /* START - EPILOGO */
+    ldw     r16, 0(sp)
+    addi    sp, sp, 4
+    ldw     ra,  0(sp)
+    /* END - EPILOGO */
+
+    ret
+
+    OVERFLOW_DEZENA:
+        mov     r20, r0          /* zerar o registrador relativo a unidades */
+        call    _somar_centena   /* tenta adicionar um na casa das dezenas */
+        /* START - EPILOGO */
+        ldw     r16, 0(sp)
+        addi    sp, sp, 4
+        ldw     ra,  0(sp)
+        /* END - EPILOGO */
+
+        ret
+
+.global _somar_centena
+_somar_centena:
+    /* START - PROLOGO */
+    stw     ra,  0(sp)
+    subi    sp, sp, 4
+    stw     r16, 0(sp)
+    /* END - PROLOGO */
+
+    addi    r21, r21, 1     /* soma 1 a r21 - o registrador que armazena as unidades */
+    addi    r16, r0, 10     /* define r16 como 10 - valor utlizado para comparacao */
+
+    beq     r21, r16, OVERFLOW_CENTENA      /* se r21 == 10 entao há overflow e temos que zerar o valor */
+    /* rumo normal sem overflow */
+    /* START - EPILOGO */
+    ldw     r16, 0(sp)
+    addi    sp, sp, 4
+    ldw     ra,  0(sp)
+    /* END - EPILOGO */
+
+    ret
+
+    OVERFLOW_CENTENA:
+        mov     r21, r0          /* zerar o registrador relativo a unidades */
+        call    _somar_milhar   /* tenta adicionar um na casa das dezenas */
+        /* START - EPILOGO */
+        ldw     r16, 0(sp)
+        addi    sp, sp, 4
+        ldw     ra,  0(sp)
+        /* END - EPILOGO */
+
+        ret
+
+.global _somar_milhar
+_somar_milhar:
+    /* START - PROLOGO */
+    stw     ra,  0(sp)
+    subi    sp, sp, 4
+    stw     r16, 0(sp)
+    /* END - PROLOGO */
+
+    addi    r22, r22, 1     /* soma 1 a r22 - o registrador que armazena as unidades */
+    addi    r16, r0, 10     /* define r16 como 10 - valor utlizado para comparacao */
+
+    beq     r22, r16, OVERFLOW_MILHAR      /* se r21 == 10 entao há overflow e temos que zerar o valor */
+    /* rumo normal sem overflow */
+    /* START - EPILOGO */
+    ldw     r16, 0(sp)
+    addi    sp, sp, 4
+    ldw     ra,  0(sp)
+    /* END - EPILOGO */
+
+    ret
+
+    OVERFLOW_MILHAR:
+        mov     r22, r0          /* zerar o registrador relativo a unidades */
+
+        /* START - EPILOGO */
+        ldw     r16, 0(sp)
+        addi    sp, sp, 4
+        ldw     ra,  0(sp)
+        /* END - EPILOGO */
+        
+        ret
 
 /* END - TRATAR CRONOMETRO */
 
