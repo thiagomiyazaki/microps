@@ -15,6 +15,8 @@
 
 .global _tratar_animacao
 _tratar_animacao:
+    addi    r23, r0, 0      /* INDICA PARA O TRATADOR DE INTERRUPS QUE O JOB ATUAL É DE ANIMACAO */
+
     /* START - PROLOGO */
     stw     r16, 0(sp)
     subi    sp, sp, 4
@@ -51,8 +53,6 @@ _tratar_animacao:
 
         movia   r17, 0b0111     /* habilita interrups, habilita reset, e inicia contagem */
         stwio   r17, 4(r16)
-
-        addi    r23, r0, 0      /* INDICA PARA O TRATADOR DE INTERRUPS QUE O JOB ATUAL É DE ANIMACAO */
 
         /* LIGA O PRIMEIRO LED */
         movia   r16, SWITCHES_REG
@@ -98,6 +98,9 @@ _tratar_animacao:
         movia   r16, TIMER_STATUS_REG
         movia   r17, 0b1011     /* habilita interrups, habilita reset, e para contagem */
         stwio   r17, 4(r16)
+
+        movia   r16, DATA_LEDS_R
+        stwio   r0, 0(r16)
 
         /* START - EPILOGO */
         ldw     r17, 0(sp)

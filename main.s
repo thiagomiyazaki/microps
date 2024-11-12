@@ -1,49 +1,18 @@
 /*
 PROJETO FINAL DE MICROP
 
-
-*/
-
-/*
-while True {
-
-    exibe Entre com o comando
-
-    comando = pegaComando()
-
-    switch (comando):
-
-    case 0:
-
-    TRATA_LED()
-
-    case 1:
-
-    TRATA_ANIMACAO()
-
-    case 2: 
-
-    TRATA_CRONOMETRO()
-
-}
-
 r8 ... r15  CALEE-SAVED (caller pode usar tranquilo)
 r16 ... r23 CALLER-SAVED (callee pode usar tranquilo)
 */
 
-/*
-TRATADOR DE INTERRUPCAO
-10 ENTER
-SHIFT LEFT E WRITE 
-*/
-
+.equ LEFTMOST_LED_R_ON,  0x20000
+.equ INIT_STACK,         0x30000
 .equ DATA_LEDS_R,        0x10000000
 .equ UART_DATA_REG,      0x10001000
 .equ UART_CONTROL_REG,   0x10001004
-.equ TIMER_STATUS_REG,   0x10002000
 .equ SWITCHES_REG,       0x10000040
-.equ LEFTMOST_LED_R_ON,  0x20000
-.equ INIT_STACK,         0x30000
+.equ PUSHBTN,            0x10000050
+.equ TIMER_STATUS_REG,   0x10002000
 
 .org 0x20
     /* START - PROLOGO */
@@ -63,10 +32,25 @@ SHIFT LEFT E WRITE
     andi    r8, et, 0b0001            /* aplica mascara para pegar valor do b0 (IRQ #0) */
     beq     r8, r0, OTHER_INTERRUPTS  /* se nao foi, ir para outras interrupcoes */
     call    EXT_IRQ0                  /* chamar rotina para tratar IRQ #0 (TIMER) */
+    br      END_HANDLER
 
 OTHER_INTERRUPTS:
-    /* adicione outros tratamentos de interrupcao aqui */
-    br      END_HANDLER
+    /* se chegou aqui, e é interrupção, então é interrup de pushbtn e não de interval timer */
+
+    /* START PROLOGO */
+    stw     ra, 0(sp)
+    subi    sp, sp, 4
+    /* END PROLOGO */
+
+    call _pushbtn_interrups
+
+    /* START EPILOGO */
+    addi    sp, sp, 4
+    ldw     ra, 0(sp)
+    /* END EPILOGO */
+
+    br END_HANDLER
+
 
 OTHER_EXCEPTIONS:
     /* adicione aqui codigo para lidar com excecoes */
@@ -98,7 +82,6 @@ EXT_IRQ0:
     /* END EPILOGO */
     ret
 
-
     SKIP_CRONOMETRO:
 
     /* TRATAMENTO DA ANIMACAO */
@@ -128,7 +111,8 @@ EXT_IRQ0:
         ret
 
     REINICIAR_SEQUENCIA:
-        movia   r10, SWITCHES_REG               /* pega o estado dos switches */
+        movia   r10, SWITCHES_REG               
+        ldwio   r10, 0(r10)                     /* pega o estado dos switches */
         beq     r10, r0, RESTART_SWITCH_OFF     /* se o estado == 0 -> nao ligado */
 
         RESTART_SWITCH_ON:
@@ -151,6 +135,11 @@ _start:
     /* HABILITAR INTERRUPCOES NO IENABLE */
     movia   r8, 0b0011      /* habilita INTERVAL TIMER e PUSHBTN (IRQs #1 e #2) */
     wrctl   ienable, r8
+
+    /* HABILITAR KEY2 EM PUSHBTN */
+    movia   r8, PUSHBTN
+    movi    r9, 0b0010       /* bit referente a KEY1 */
+    stwio   r9, 8(r8)        /* habilita interrupcoes no key1 no pushbutton */
 
     movia sp, INIT_STACK
     movia r14, COMANDO                       /* pega o endereco do inicial do comando e armazena em 14 */
@@ -346,6 +335,8 @@ _tratar_led:
 
 .global _tratar_animacao
 _tratar_animacao:
+    addi    r23, r0, 0      /* INDICA PARA O TRATADOR DE INTERRUPS QUE O JOB ATUAL É DE ANIMACAO */
+
     /* START - PROLOGO */
     stw     r16, 0(sp)
     subi    sp, sp, 4
@@ -383,8 +374,6 @@ _tratar_animacao:
         movia   r17, 0b0111     /* habilita interrups, habilita reset, e inicia contagem */
         stwio   r17, 4(r16)
 
-        /* TO-DO HABILITAR FLAG DE ANIMACAO */
-
         /* LIGA O PRIMEIRO LED */
         movia   r16, SWITCHES_REG
         ldwio   r16, 0(r16)
@@ -418,10 +407,21 @@ _tratar_animacao:
             ret
 
     PARAR_ANIMACAO:
-        movia   r16, TIMER_STATUS_REG 
+    /* 
+        CONTROL REGISTER (TIMER_STATUS_REG + 4)
+        habilitar ITO   - b0 (habilita interrupcoes do timer)
+        habilitar CONT  - b1 (quando chega a zero reseta)
+        habilitar START - b2 (inicia o contador quando == 1)
+        habilitar STOP  - b3 (para o contador)
+        b3_b2_b1_b0 -> 0b1011 -> 1_0_1_1
+    */
+        movia   r16, TIMER_STATUS_REG
         movia   r17, 0b1011     /* habilita interrups, habilita reset, e para contagem */
         stwio   r17, 4(r16)
-        
+
+        movia   r16, DATA_LEDS_R
+        stwio   r0, 0(r16)
+
         /* START - EPILOGO */
         ldw     r17, 0(sp)
         addi    sp, sp, 4
@@ -438,6 +438,7 @@ _tratar_animacao:
 
 .global _tratar_cronometro
 _tratar_cronometro:
+    addi    r23, r0, 1      /* INDICA PARA O TRATADOR DE INTERRUPS QUE O JOB ATUAL É DE CRONOMETRO */
     /* START - PROLOGO */
     stw     r16, 0(sp)
     subi    sp, sp, 4
@@ -466,8 +467,6 @@ _tratar_cronometro:
         movia   r17, 0b0111     /* habilita interrups, habilita reset, e inicia contagem */
         stwio   r17, 4(r16)     /* escreve no status reg do timer */
 
-        addi    r23, r0, 1      /* INDICA PARA O TRATADOR DE INTERRUPS QUE O JOB ATUAL É DE CRONOMETRO */
-
         /* ZERAR OS REGISTRADORES QUE REPRESENTAM AS UNIDADES */
         mov     r19, r0     /* r19 - _ _ _ X */
         mov     r20, r0     /* r20 - _ _ X _ */
@@ -489,8 +488,20 @@ _tratar_cronometro:
 
     CANCELAR_CRONOMETRO:
         /* CONFIGURAR O TIMER PARA INTERROMPER A CONTAGEM */
+        /* 
+            CONTROL REGISTER (TIMER_STATUS_REG + 4)
+            habilitar ITO   - b0 (habilita interrupcoes do timer)
+            habilitar CONT  - b1 (quando chega a zero reseta)
+            habilitar START - b2 (inicia o contador quando == 1)
+            habilitar STOP  - b3 (para o contador)
+        */
+        movia   r16, TIMER_STATUS_REG
+        stwio   r0, 4(r16)     /* escreve no status reg do timer */
+        stwio   r0, 0(r16)     /* limpa bit de timeout */
 
         /* DESLIGAR DISPLAY */
+        movia   r16, END_7SEG_DISPLAY   /* pega o endereço do display de 7-segmentos */
+        stwio   r0,  0(r16)
 
         /* START - EPILOGO */
         addi    sp, sp, 4
@@ -719,6 +730,69 @@ _somar_milhar:
         ret
 
 /* END - TRATAR CRONOMETRO */
+
+/* START - CONFIG PUSHBTN */
+
+.equ PUSHBTN, 0x10000050
+.equ TIMER,   0x10002000
+
+.global _pushbtn_interrups
+_pushbtn_interrups:
+    /* START - PROLOGO */
+    stw     r16, 0(sp)
+    subi    sp, sp, 4
+    stw     r17, 0(sp)
+    /* END - PROLOGO */
+
+    /* RESETAR PUSHBTNS */
+    movia   r16, PUSHBTN
+    addi    r17, r0, 1
+    stwio   r17,  0xC(r16)          /* reseta os pushbuttons */
+
+    /* VERIFICA SE TIMER == RUNNING / SE ESTIVER -> STOP / SE NÃO ESTIVER -> RUN */
+    /* 
+        STATUS REGISTER (TIMER)
+            TO  - b0 (== 1 when timer reaches zero. The TO bit can be reset by writing a 0 into it.)
+            RUN - b1 (is set to 1 by the timer whenever it is currently counting)
+        CONTROL REGISTER (TIMER + 4)
+            habilitar ITO   - b0 (habilita interrupcoes do timer)
+            habilitar CONT  - b1 (quando chega a zero reseta)
+            habilitar START - b2 (inicia o contador quando == 1)
+            habilitar STOP  - b3 (para o contador)
+    */
+    movia   r16, TIMER
+    ldwio   r16, 0(r16)     /* copia o valor do registrador STATUS (TIMER) */
+
+    /* O TIMER ESTÁ CORRENDO? */
+    andi    r16, r16, 0b0010    /* aplica mascara para verificar se RUN (b1) == 1 */
+    addi    r17, r0,  0b0010    /* constante para comparação */
+    beq     r16, r17, STOP_TIMER_PUSHBTN
+    br      START_TIMER_PUSBTH
+
+    STOP_TIMER_PUSHBTN:
+        movia   r16, TIMER_STATUS_REG
+        addi    r17, r0, 0b1011 /* stop == 1 (b3) */
+        stwio   r17, 4(r16)
+
+        /* START - EPILOGO */
+        ldw     r17, 0(sp)
+        addi    sp, sp, 4
+        ldw     r16, 0(sp)
+        /* END - EPILOGO */
+        ret
+
+    START_TIMER_PUSBTH:
+        movia   r16, TIMER_STATUS_REG
+        addi    r17, r0, 0b0111 /* start == 1 (b2) */
+        stwio   r17, 4(r16)
+        /* START - EPILOGO */
+        ldw     r17, 0(sp)
+        addi    sp, sp, 4
+        ldw     r16, 0(sp)
+        /* END - EPILOGO */
+        ret
+
+/* END - CONFIG PUSHBTN */
 
 .org 0x10000
 .global COMANDO

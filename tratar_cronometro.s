@@ -5,6 +5,7 @@
 
 .global _tratar_cronometro
 _tratar_cronometro:
+    addi    r23, r0, 1      /* INDICA PARA O TRATADOR DE INTERRUPS QUE O JOB ATUAL É DE CRONOMETRO */
     /* START - PROLOGO */
     stw     r16, 0(sp)
     subi    sp, sp, 4
@@ -33,8 +34,6 @@ _tratar_cronometro:
         movia   r17, 0b0111     /* habilita interrups, habilita reset, e inicia contagem */
         stwio   r17, 4(r16)     /* escreve no status reg do timer */
 
-        addi    r23, r0, 1      /* INDICA PARA O TRATADOR DE INTERRUPS QUE O JOB ATUAL É DE CRONOMETRO */
-
         /* ZERAR OS REGISTRADORES QUE REPRESENTAM AS UNIDADES */
         mov     r19, r0     /* r19 - _ _ _ X */
         mov     r20, r0     /* r20 - _ _ X _ */
@@ -55,7 +54,22 @@ _tratar_cronometro:
         ret
 
     CANCELAR_CRONOMETRO:
-    /* CONFIGURAR O TIMER PARA INTERROMPER A CONTAGEM */
+        /* CONFIGURAR O TIMER PARA INTERROMPER A CONTAGEM */
+        /* 
+            CONTROL REGISTER (TIMER_STATUS_REG + 4)
+            habilitar ITO   - b0 (habilita interrupcoes do timer)
+            habilitar CONT  - b1 (quando chega a zero reseta)
+            habilitar START - b2 (inicia o contador quando == 1)
+            habilitar STOP  - b3 (para o contador)
+        */
+        movia   r16, TIMER_STATUS_REG
+        stwio   r0, 4(r16)     /* escreve no status reg do timer */
+        stwio   r0, 0(r16)     /* limpa bit de timeout */
+
+        /* DESLIGAR DISPLAY */
+        movia   r16, END_7SEG_DISPLAY   /* pega o endereço do display de 7-segmentos */
+        stwio   r0,  0(r16)
+
         /* START - EPILOGO */
         addi    sp, sp, 4
         ldw     ra,  0(sp)
