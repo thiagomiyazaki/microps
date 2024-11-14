@@ -13,7 +13,7 @@ _pushbtn_interrups:
 
     /* RESETAR PUSHBTNS */
     movia   r16, PUSHBTN
-    addi    r17, r0, 1
+    addi    r17, r0, 0xF
     stwio   r17,  0xC(r16)          /* reseta os pushbuttons */
 
     /* VERIFICA SE TIMER == RUNNING / SE ESTIVER -> STOP / SE NÃO ESTIVER -> RUN */
