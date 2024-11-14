@@ -1,8 +1,8 @@
 /*
 PROJETO FINAL DE MICROPROCESSADORES
 
-r8 ... r15  CALEE-SAVED (caller pode usar tranquilo)
-r16 ... r23 CALLER-SAVED (callee pode usar tranquilo)
+r8 ... r15  CALLEE-SAVED
+r16 ... r23 CALLER-SAVED
 */
 
 .equ LEFTMOST_LED_R_ON,  0x20000
