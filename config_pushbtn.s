@@ -37,7 +37,7 @@ _pushbtn_interrups:
     br      START_TIMER_PUSBTH
 
     STOP_TIMER_PUSHBTN:
-        movia   r16, TIMER_STATUS_REG
+        movia   r16, TIMER
         addi    r17, r0, 0b1011 /* stop == 1 (b3) */
         stwio   r17, 4(r16)
 
@@ -49,7 +49,7 @@ _pushbtn_interrups:
         ret
 
     START_TIMER_PUSBTH:
-        movia   r16, TIMER_STATUS_REG
+        movia   r16, TIMER
         addi    r17, r0, 0b0111 /* start == 1 (b2) */
         stwio   r17, 4(r16)
         /* START - EPILOGO */

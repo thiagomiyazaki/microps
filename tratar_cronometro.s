@@ -26,9 +26,9 @@ _tratar_cronometro:
         movia   r16, TIMER_STATUS_REG
         
         /* setar o valor de contagem --> 50 000 000 == 0x02FA F080 */
-        movia   r17, 0x9680     /* parte baixa de 50 000 000*/
+        movia   r17, 0xF080     /* parte baixa de 50 000 000*/
         stwio   r17, 8(r16)     /* escreve parte baixa  */
-        movia   r17, 0x0098     /* parte alta de 50 000 000*/
+        movia   r17, 0x02FA     /* parte alta de 50 000 000*/
         stwio   r17, 12(r16)    /* escreve parte alta  */
 
         movia   r17, 0b0111     /* habilita interrups, habilita reset, e inicia contagem */

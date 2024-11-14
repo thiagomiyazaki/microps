@@ -26,7 +26,6 @@ r16 ... r23 CALLER-SAVED (callee pode usar tranquilo)
     /* END - PROLOGO */
     
     rdctl   et, ipending              /* checa se houve interrupcao */
-    beq     et, r0, OTHER_EXCEPTIONS  /* se ipending == 0, nao houve interrupcao logo excecao */
     subi    ea, ea, 4                 /* decrementa ea para retornar corretamente ao main */
 
     andi    r8, et, 0b0001            /* aplica mascara para pegar valor do b0 (IRQ #0) */

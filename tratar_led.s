@@ -36,7 +36,7 @@ _tratar_led:
     subi    r19, r19, 0x30          /* subtrai 0x30 do digito mais significativo */
 
     /* multiplica por dez : multiplica por oito e soma duas vezes */
-    slli    r20, r19, 8             /* shift left 8 bits == multiplicar por 8 */
+    slli    r20, r19, 3             /* shift left 8 bits == multiplicar por 8 */
     add     r20, r20, r19           /* soma uma vez - primeira */
     add     r20, r20, r19           /* soma uma vez - segunda */
 
