@@ -41,7 +41,7 @@ _tratar_animacao:
 
         /* ZERA TODOS OS LEDS - apaga todos */
         movia   r16, DATA_LEDS_R    /* pega endereco dos LEDS R */
-        stwio   r0, 0(r16)          /* acende o ultimo led */
+        stwio   r0, 0(r16)          /* apaga todos os leds */
         
         movia   r16, TIMER_STATUS_REG   /* armazena em r16 o enderco do status reg do timer */
 
